@@ -2,44 +2,92 @@
 
 module.exports = function(grunt) {
 
+	var jsFiles = [
+		'src/tables.js',
+		'src/tables.stack.js',
+		'src/tables.btnmarkup.js',
+		'src/tables.columntoggle.js',
+		'src/tables.sortable.js',
+		'src/tables.swipetoggle.js',
+		'src/tables.minimap.js',
+		'src/tables.modeswitch.js',
+		'src/tables.checkall.js',
+		'src/tables.outro.js'
+	];
+
+	var jsStackOnlyFiles = [
+		'src/tables.js',
+		'src/tables.stack.js',
+		'src/tables.outro.js'
+	];
+
 	// Project configuration.
 	grunt.initConfig({
 		// Metadata.
-		pkg: grunt.file.readJSON('tablesaw.json'),
+		pkg: grunt.file.readJSON('package.json'),
 		banner: '/*! <%= pkg.title || pkg.name %> - v<%= pkg.version %> - ' +
 			'<%= grunt.template.today("yyyy-mm-dd") %>\n' +
 			'<%= pkg.homepage ? "* " + pkg.homepage + "\\n" : "" %>' +
 			'* Copyright (c) <%= grunt.template.today("yyyy") %> <%= pkg.author.company %>;' +
-			' Licensed <%= _.pluck(pkg.licenses, "type").join(", ") %> */\n',
+			' Licensed <%= pkg.license %> */\n',
 		// Task configuration.
-		clean: ['dist/tmp/'],
+		clean: {
+			dependencies: ['dist/dependencies/'],
+			post: ['dist/tmp/', 'dist/**/*.min.*']
+		},
+		copy: {
+			jquery: {
+				src: 'node_modules/jquery/dist/jquery.js',
+				dest: 'dist/dependencies/jquery.js'
+			},
+			naturalsort: {
+				src: 'node_modules/javascript-natural-sort/naturalSort.js',
+				dest: 'dist/dependencies/naturalsort.js'
+			},
+			qunit: {
+				files: [{
+					expand: true,
+					flatten: true,
+					src: [ 'node_modules/qunit/qunit/*' ],
+					dest: 'dist/dependencies/',
+					filter: 'isFile'
+				}]
+			}
+		},
 		concat: {
 			options: {
 				banner: '<%= banner %>',
 				stripBanners: true
 			},
+			jsautoinit: {
+				src: ['src/tables-init.js'],
+				dest: 'dist/<%= pkg.name %>-init.js'
+			},
 			jsall: {
 				src: [
-					'src/tables-init.js',
-					'src/tables.js',
-					'src/tables.stack.js',
-					'src/tables.btnmarkup.js',
-					'src/tables.columntoggle.js',
-					'src/tables.swipetoggle.js',
-					'src/tables.sortable.js',
-					'src/tables.minimap.js',
-					'src/tables.modeswitch.js'
-				],
+					'src/lib/shoestring-custom.js',
+					'src/tables.intro.shoestring.js'
+				].concat( jsFiles ),
 				dest: 'dist/<%= pkg.name %>.js'
+			},
+			jsjquery: {
+				src: [
+					'src/tables.intro.jquery.js'
+				].concat( jsFiles ),
+				dest: 'dist/<%= pkg.name %>.jquery.js'
 			},
 			jsstack: {
 				src: [
-					'src/tables-init.js',
-					'src/tablesaw.js',
-					'src/tables.js',
-					'src/tables.stack.js'
-				],
-				dest: 'dist/<%= pkg.name %>.stackonly.js'
+					'src/lib/shoestring-custom.js',
+					'src/tables.intro.shoestring.js'
+				].concat( jsStackOnlyFiles ),
+				dest: 'dist/stackonly/<%= pkg.name %>.stackonly.js'
+			},
+			jsstackjquery: {
+				src: [
+					'src/tables.intro.jquery.js'
+				].concat( jsStackOnlyFiles ),
+				dest: 'dist/stackonly/<%= pkg.name %>.stackonly.jquery.js'
 			},
 			cssall: {
 				src: [
@@ -51,8 +99,7 @@ module.exports = function(grunt) {
 					'src/tables.swipetoggle.css',
 					'src/tables.columntoggle.css',
 					'src/tables.sortable.css',
-					'src/tables.minimap.css',
-					'src/tables.modeswitch.css'
+					'src/tables.minimap.css'
 				],
 				dest: 'dist/tmp/<%= pkg.name %>.myth.css'
 			},
@@ -76,96 +123,86 @@ module.exports = function(grunt) {
 					'dist/tmp/<%= pkg.name %>.stackonly-sans-mixin.scss',
 					'src/tables.stack-mixin.scss'
 				],
-				dest: 'dist/<%= pkg.name %>.stackonly.scss'
+				dest: 'dist/stackonly/<%= pkg.name %>.stackonly.scss'
 			}
 		},
 		qunit: {
-			files: ['test/**/*.html']
+			files: ['test-qunit/**/*.html']
 		},
-		jshint: {
-			gruntfile: {
-				options: {
-					jshintrc: '.jshintrc'
-				},
-				src: 'Gruntfile.js'
-			},
-			src: {
-				options: {
-					jshintrc: 'src/.jshintrc'
-				},
-				src: ['src/**/*.js']
-			},
-			test: {
-				options: {
-					jshintrc: 'test/.jshintrc'
-				},
-				src: ['test/**/*.js']
-			},
+		run: {
+			ava: {
+				exec: "./node_modules/.bin/ava"
+			}
 		},
 		watch: {
-			gruntfile: {
-				files: '<%= jshint.gruntfile.src %>',
-				tasks: ['jshint:gruntfile']
-			},
 			src: {
-				files: ['<%= concat.cssall.src %>', '<%= concat.jsall.src %>'],
+				files: [
+					'<%= concat.jsall.src %>',
+					'<%= concat.jsautoinit.src %>',
+					'<%= concat.cssall.src %>'
+				],
 				tasks: ['src']
 			},
-			icons: {
-				files: ['<%= grunticon.tablesaw.options.src %>/*'],
-				tasks: ['grunticon:tablesaw']
-			},
 			test: {
-				files: '<%= jshint.test.src %>',
-				tasks: ['jshint:test', 'qunit']
-			},
+				files: ['dist/<%= pkg.name %>.js', 'test-qunit/**/*.js', 'test/**/*.js'],
+				tasks: ['test']
+			}
 		},
-		grunticon: {
-			tablesaw: {
-				files: [{
-					expand: true,
-					cwd: 'src/icons/',
-					src: ['*.svg'],
-					dest: 'dist/icons/'
-				}],
-				options: {
-					loadersnippet: 'grunticon.loader.js',
-					customselectors: {
-						"arrow-gray-down": [".tablesaw-bar .tablesaw-columntoggle-btnwrap > a.btn"],
-						"sort-ascending": [".tablesaw-sortable .sortable-head.sortable-ascending button:after"],
-						"sort-descending": [".tablesaw-sortable .sortable-head.sortable-descending button:after"],
-						"arrow-gray-right": [".tablesaw-bar .tablesaw-advance > .btn.right"],
-						"arrow-gray-left": [".tablesaw-bar .tablesaw-advance > .btn.left"],
-						"check": [".tablesaw-bar .btn-selected.btn-checkbox:after"]
-					}
+		uglify: {
+			js: {
+				files: {
+					'dist/<%= pkg.name %>.min.js': [ 'dist/<%= pkg.name %>.js' ],
+					'dist/<%= pkg.name %>.jquery.min.js': [ 'dist/<%= pkg.name %>.jquery.js' ],
+					'dist/stackonly/<%= pkg.name %>.stackonly.min.js': [ 'dist/stackonly/<%= pkg.name %>.stackonly.js' ],
+					'dist/stackonly/<%= pkg.name %>.stackonly.jquery.min.js': [ 'dist/stackonly/<%= pkg.name %>.stackonly.jquery.js' ]
+				}
+			}
+		},
+		cssmin: {
+			css: {
+				files: {
+					'dist/<%= pkg.name %>.min.css': [ 'dist/<%= pkg.name %>.css' ],
+					'dist/stackonly/<%= pkg.name %>.stackonly.min.css': [ 'dist/stackonly/<%= pkg.name %>.stackonly.css' ]
 				}
 			}
 		},
 		bytesize: {
 			dist: {
 				src: [
-					'dist/<%= pkg.name %>.css',
-					'dist/<%= pkg.name %>.js'
-				]
-			},
-			stackonly: {
-				src: [
-					'dist/<%= pkg.name %>.stackonly.css',
-					'dist/<%= pkg.name %>.stackonly.js'
+					'dist/<%= pkg.name %>.min.css',
+					'dist/<%= pkg.name %>.min.js',
+					'dist/<%= pkg.name %>.jquery.min.js',
+					'dist/stackonly/<%= pkg.name %>.stackonly.min.css',
+					'dist/stackonly/<%= pkg.name %>.stackonly.min.js',
+					'dist/stackonly/<%= pkg.name %>.stackonly.jquery.min.js'
 				]
 			}
 		},
 		'gh-pages': {
 			options: {},
-			src: ['dist/**/*', 'bower_components/**/*', 'demo/**/*', 'test/**/*']
+			src: ['dist/**/*', 'demo/**/*', 'test-qunit/**/*']
 		},
 		myth: {
 			dist: {
 				files: {
 					'dist/<%= pkg.name %>.css': '<%= concat.cssall.dest %>',
-					'dist/<%= pkg.name %>.stackonly.css': '<%= concat.cssstack.dest %>',
+					'dist/stackonly/<%= pkg.name %>.stackonly.css': '<%= concat.cssstack.dest %>',
 					'dist/tmp/<%= pkg.name %>.stackonly-sans-mixin.scss': '<%= concat.cssstackmixinpre.dest %>'
 				}
+			}
+		},
+		compress: {
+			main: {
+				options: {
+					archive: 'dist/tablesaw-<%= pkg.version %>.zip',
+					mode: 'zip',
+					pretty: true
+				},
+				files: [
+					{expand: true, cwd: 'dist/', src: ['*'], dest: 'tablesaw/'},
+					{expand: true, cwd: 'dist/', src: ['dependencies/*'], dest: 'tablesaw/'},
+					{expand: true, cwd: 'dist/', src: ['stackonly/*'], dest: 'tablesaw/'}
+				]
 			}
 		}
 	});
@@ -173,11 +210,13 @@ module.exports = function(grunt) {
 	require('matchdep').filterDev('grunt-*').forEach(grunt.loadNpmTasks);
 
 	// Default task.
-	grunt.registerTask('concat-pre', ['concat:jsall', 'concat:jsstack', 'concat:cssall', 'concat:cssstack', 'concat:cssstackmixinpre']);
+	grunt.registerTask('test', ['qunit', 'run:ava']);
+	grunt.registerTask('concat-pre', ['concat:jsautoinit', 'concat:jsall', 'concat:jsjquery', 'concat:jsstack', 'concat:jsstackjquery', 'concat:cssall', 'concat:cssstack', 'concat:cssstackmixinpre']);
 	grunt.registerTask('concat-post', ['concat:cssstackmixinpost']);
-	grunt.registerTask('src', ['concat-pre', 'myth', 'concat-post', 'clean']);
+	grunt.registerTask('src', ['concat-pre', 'myth', 'concat-post', 'clean:dependencies', 'copy', 'clean:post']);
+	grunt.registerTask('filesize', ['uglify', 'cssmin', 'bytesize', 'clean:post']);
 
-	grunt.registerTask('default', ['jshint', 'src', 'grunticon:tablesaw', 'qunit', 'bytesize']);
+	grunt.registerTask('default', ['src', 'test', 'filesize']);
 
 	// Deploy
 	grunt.registerTask('deploy', ['default', 'gh-pages']);
